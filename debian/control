@@ -1,0 +1,17 @@
+Source: trojan
+Section: web
+Priority: optional
+Maintainer: GreaterFire <GreaterFire@protonmail.com>
+Build-Depends: debhelper (>= 11), cmake, libboost-system-dev, libssl-dev, default-libmysqlclient-dev, openssl, python3, curl
+Standards-Version: 4.2.0
+Vcs-Browser: https://salsa.debian.org/debian/igniter.git
+Vcs-Git: https://salsa.debian.org/debian/igniter.git
+Homepage: https://github.com/trojan-gfw/trojan
+
+Package: trojan
+Architecture: any
+Depends: ${shlibs:Depends}, ${misc:Depends}
+Description: unidentifiable mechanism that helps you bypass GFW
+ Trojan features multiple protocols over TLS to avoid both active/passive
+ detections and ISP QoS limitations. It tries to hide a proxy service
+ behind a normal HTTPS service.

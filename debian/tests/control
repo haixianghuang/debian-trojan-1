@@ -1,0 +1,2 @@
+Tests: smoke
+Depends: trojan, git, openssl, python3, curl

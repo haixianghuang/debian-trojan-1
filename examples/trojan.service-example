@@ -1,0 +1,13 @@
+[Unit]
+Description=trojan
+After=network.target mysql.service mariadb.service mysqld.service
+
+[Service]
+Type=simple
+StandardError=journal
+ExecStart=@CMAKE_INSTALL_FULL_BINDIR@/trojan @CMAKE_INSTALL_FULL_SYSCONFDIR@/trojan/@CONFIG_NAME@.json
+ExecReload=/bin/kill -HUP $MAINPID
+ExecStop=/bin/kill -TERM $MAINPID
+
+[Install]
+WantedBy=multi-user.target
