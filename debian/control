@@ -11,6 +11,8 @@ Homepage: https://github.com/trojan-gfw/trojan
 Package: trojan
 Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
+Recommends: ca-certificates
+Suggests: default-mysql-server
 Description: unidentifiable mechanism that helps you bypass GFW
  Trojan features multiple protocols over TLS to avoid both active/passive
  detections and ISP QoS limitations. It tries to hide a proxy service
