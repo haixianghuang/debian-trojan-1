@@ -28,12 +28,15 @@ class Config {
 public:
     enum RunType {
         SERVER,
-        CLIENT
+        CLIENT,
+        FORWARD
     } run_type;
     std::string local_addr;
     uint16_t local_port;
     std::string remote_addr;
     uint16_t remote_port;
+    std::string target_addr;
+    uint16_t target_port;
     std::map<std::string, std::string> password;
     bool append_payload;
     Log::Level log_level;
@@ -51,13 +54,12 @@ public:
         bool reuse_session;
         long session_timeout;
         std::string curves;
-        std::string sigalgs;
         std::string dhparam;
     } ssl;
     class TCPConfig {
     public:
-        bool keep_alive;
         bool no_delay;
+        bool keep_alive;
         bool fast_open;
         int fast_open_qlen;
     } tcp;

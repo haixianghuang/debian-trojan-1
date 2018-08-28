@@ -1,9 +1,11 @@
 {
-    "run_type": "client",
+    "run_type": "forward",
     "local_addr": "127.0.0.1",
-    "local_port": 1080,
+    "local_port": 5901,
     "remote_addr": "example.com",
     "remote_port": 443,
+    "target_addr": "127.0.0.1",
+    "target_port": 5901,
     "password": [
         "password1"
     ],

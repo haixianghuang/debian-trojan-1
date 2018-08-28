@@ -27,11 +27,20 @@ using namespace boost::property_tree;
 void Config::load(const string &filename) {
     ptree tree;
     read_json(filename, tree);
-    run_type = (tree.get("run_type", string("client")) == "server") ? SERVER : CLIENT;
+    string rt = tree.get("run_type", string("client"));
+    if (rt == "server") {
+        run_type = SERVER;
+    } else if (rt == "forward") {
+        run_type = FORWARD;
+    } else {
+        run_type = CLIENT;
+    }
     local_addr = tree.get("local_addr", string());
     local_port = tree.get("local_port", uint16_t());
     remote_addr = tree.get("remote_addr", string());
     remote_port = tree.get("remote_port", uint16_t());
+    target_addr = tree.get("target_addr", string());
+    target_port = tree.get("target_port", uint16_t());
     map<string, string>().swap(password);
     for (auto& item: tree.get_child("password")) {
         string p = item.second.get_value<string>();
@@ -54,14 +63,13 @@ void Config::load(const string &filename) {
         ssl.alpn += proto;
     }
     ssl.reuse_session = tree.get("ssl.reuse_session", true);
-    ssl.session_timeout = tree.get("ssl.session_timeout", long(300));
+    ssl.session_timeout = tree.get("ssl.session_timeout", long(600));
     ssl.curves = tree.get("ssl.curves", string());
-    ssl.sigalgs = tree.get("ssl.sigalgs", string());
     ssl.dhparam = tree.get("ssl.dhparam", string());
-    tcp.keep_alive = tree.get("tcp.keep_alive", true);
     tcp.no_delay = tree.get("tcp.no_delay", true);
-    tcp.fast_open = tree.get("tcp.fast_open", true);
-    tcp.fast_open_qlen = tree.get("tcp.fast_open_qlen", 5);
+    tcp.keep_alive = tree.get("tcp.keep_alive", true);
+    tcp.fast_open = tree.get("tcp.fast_open", false);
+    tcp.fast_open_qlen = tree.get("tcp.fast_open_qlen", 20);
     mysql.enabled = tree.get("mysql.enabled", false);
     mysql.server_addr = tree.get("mysql.server_addr", string("127.0.0.1"));
     mysql.server_port = tree.get("mysql.server_port", uint16_t(3306));

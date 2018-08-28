@@ -1,9 +1,9 @@
-cmake_minimum_required(VERSION 3.0.2)
+cmake_minimum_required(VERSION 3.1)
 project(trojan)
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
-add_definitions(-std=c++11)
+set(CMAKE_CXX_STANDARD 11)
 if(NOT MSVC)
     add_definitions(-Wall -Wextra)
 endif()
@@ -12,6 +12,7 @@ add_executable(trojan
     src/authenticator.cpp
     src/clientsession.cpp
     src/config.cpp
+    src/forwardsession.cpp
     src/log.cpp
     src/main.cpp
     src/serversession.cpp

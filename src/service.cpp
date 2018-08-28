@@ -23,6 +23,7 @@
 #endif // _WIN32
 #include "serversession.h"
 #include "clientsession.h"
+#include "forwardsession.h"
 #include "ssldefaults.h"
 using namespace std;
 using namespace boost::asio::ip;
@@ -34,42 +35,7 @@ Service::Service(Config &config) :
     ssl_context(context::sslv23),
     auth(nullptr) {
     Log::level = config.log_level;
-    if (config.tcp.keep_alive) {
-        socket_acceptor.set_option(boost::asio::socket_base::keep_alive(true));
-    }
-    if (config.tcp.no_delay) {
-        socket_acceptor.set_option(tcp::no_delay(true));
-    }
-#ifdef TCP_FASTOPEN
-    if (config.tcp.fast_open) {
-        using fastopen = boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>;
-        boost::system::error_code ec;
-        socket_acceptor.set_option(fastopen(config.tcp.fast_open_qlen), ec);
-    }
-#else
-    if (config.tcp.fast_open) {
-        Log::log_with_date_time("TCP_FASTOPEN is not supported", Log::WARN);
-    }
-#endif // TCP_FASTOPEN
-#ifndef TCP_FASTOPEN_CONNECT
-    if (config.tcp.fast_open) {
-        Log::log_with_date_time("TCP_FASTOPEN_CONNECT is not supported", Log::WARN);
-    }
-#endif // TCP_FASTOPEN_CONNECT
     auto native_context = ssl_context.native_handle();
-    if (config.ssl.sigalgs != "") {
-        SSL_CONF_CTX *cctx = SSL_CONF_CTX_new();
-        SSL_CONF_CTX_set_ssl_ctx(cctx, native_context);
-        SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_CMDLINE);
-        if (config.run_type == Config::SERVER) {
-            SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_SERVER);
-        } else {
-            SSL_CONF_CTX_set_flags(cctx, SSL_CONF_FLAG_CLIENT);
-        }
-        SSL_CONF_cmd(cctx, "-sigalgs", config.ssl.sigalgs.c_str());
-        SSL_CONF_CTX_finish(cctx);
-        SSL_CONF_CTX_free(cctx);
-    }
     ssl_context.set_options(context::default_workarounds | context::no_sslv2 | context::no_sslv3 | context::single_dh_use);
     if (config.ssl.curves != "") {
         SSL_CTX_set1_curves_list(native_context, config.ssl.curves.c_str());
@@ -151,12 +117,42 @@ Service::Service(Config &config) :
     if (config.ssl.cipher != "") {
         SSL_CTX_set_cipher_list(native_context, config.ssl.cipher.c_str());
     }
+    if (config.tcp.no_delay) {
+        socket_acceptor.set_option(tcp::no_delay(true));
+    }
+    if (config.tcp.keep_alive) {
+        socket_acceptor.set_option(boost::asio::socket_base::keep_alive(true));
+    }
+#ifdef TCP_FASTOPEN
+    if (config.tcp.fast_open) {
+        using fastopen = boost::asio::detail::socket_option::integer<IPPROTO_TCP, TCP_FASTOPEN>;
+        boost::system::error_code ec;
+        socket_acceptor.set_option(fastopen(config.tcp.fast_open_qlen), ec);
+    }
+#else
+    if (config.tcp.fast_open) {
+        Log::log_with_date_time("TCP_FASTOPEN is not supported", Log::WARN);
+    }
+#endif // TCP_FASTOPEN
+#ifndef TCP_FASTOPEN_CONNECT
+    if (config.tcp.fast_open) {
+        Log::log_with_date_time("TCP_FASTOPEN_CONNECT is not supported", Log::WARN);
+    }
+#endif // TCP_FASTOPEN_CONNECT
 }
 
 void Service::run() {
     async_accept();
     tcp::endpoint local_endpoint = socket_acceptor.local_endpoint();
-    Log::log_with_date_time(string("trojan service (") + (config.run_type == Config::SERVER ? "server" : "client") + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::FATAL);
+    string rt;
+    if (config.run_type == Config::SERVER) {
+        rt = "server";
+    } else if (config.run_type == Config::FORWARD) {
+        rt = "forward";
+    } else {
+        rt = "client";
+    }
+    Log::log_with_date_time(string("trojan service (") + rt + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::FATAL);
     io_service.run();
     Log::log_with_date_time("trojan service stopped", Log::FATAL);
 }
@@ -169,6 +165,8 @@ void Service::async_accept() {
     shared_ptr<Session>session(nullptr);
     if (config.run_type == Config::SERVER) {
         session = make_shared<ServerSession>(config, io_service, ssl_context, auth);
+    } else if (config.run_type == Config::FORWARD) {
+        session = make_shared<ForwardSession>(config, io_service, ssl_context);
     } else {
         session = make_shared<ClientSession>(config, io_service, ssl_context);
     }
