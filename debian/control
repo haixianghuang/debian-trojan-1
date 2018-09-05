@@ -4,8 +4,8 @@ Priority: optional
 Maintainer: GreaterFire <GreaterFire@protonmail.com>
 Build-Depends: debhelper (>= 11), cmake, libboost-system-dev, libboost-program-options-dev, libssl-dev, default-libmysqlclient-dev, openssl, python3, curl
 Standards-Version: 4.2.1.1
-Vcs-Browser: https://salsa.debian.org/debian/igniter.git
-Vcs-Git: https://salsa.debian.org/debian/igniter.git
+Vcs-Browser: https://salsa.debian.org/debian/trojan.git
+Vcs-Git: https://salsa.debian.org/debian/trojan.git
 Homepage: https://github.com/trojan-gfw/trojan
 
 Package: trojan
