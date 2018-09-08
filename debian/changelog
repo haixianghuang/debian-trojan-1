@@ -1,3 +1,9 @@
+trojan (1.7.0-2) unstable; urgency=low
+
+  * Elaborate package description so that it's more objective (Closes: #908338)
+
+ -- GreaterFire <GreaterFire@protonmail.com>  Sat, 08 Sep 2018 20:52:18 +0000
+
 trojan (1.7.0-1) unstable; urgency=low
 
   * Initial release (Closes: #905046)

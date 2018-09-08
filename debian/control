@@ -13,7 +13,7 @@ Architecture: any
 Depends: ${shlibs:Depends}, ${misc:Depends}
 Recommends: ca-certificates
 Suggests: default-mysql-server
-Description: unidentifiable mechanism that helps you bypass GFW
+Description: fast and lightweight proxy that helps you bypass firewalls
  Trojan features multiple protocols over TLS to avoid both active/passive
  detections and ISP QoS limitations. It tries to hide a proxy service
- behind a normal HTTPS service.
+ behind a normal HTTPS service. Trojan claims to be unidentifiable.
