@@ -1,3 +1,9 @@
+trojan (1.7.0-3) unstable; urgency=low
+
+  * Fix autotest
+
+ -- GreaterFire <GreaterFire@protonmail.com>  Sun, 09 Sep 2018 15:25:07 +0000
+
 trojan (1.7.0-2) unstable; urgency=low
 
   * Elaborate package description so that it's more objective (Closes: #908338)

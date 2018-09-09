@@ -1,2 +1,7 @@
-Tests: smoke
-Depends: trojan, git, openssl, python3, curl
+Test-Command: cd tests/LinuxSmokeTest && ./basic.sh /usr/bin/trojan
+Restrictions: allow-stderr isolation-container
+Depends: trojan, openssl, python3, curl
+
+Test-Command: cd tests/LinuxSmokeTest && ./fake-client.sh /usr/bin/trojan
+Restrictions: allow-stderr isolation-container
+Depends: trojan, openssl, python3, curl
