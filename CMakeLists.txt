@@ -21,7 +21,6 @@ add_executable(trojan
     src/session.cpp
     src/socks5address.cpp
     src/ssldefaults.cpp
-    src/sslsession.cpp
     src/trojanrequest.cpp
     src/udppacket.cpp
     src/version.cpp)

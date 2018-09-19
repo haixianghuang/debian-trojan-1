@@ -19,7 +19,6 @@
         "sni": "",
         "alpn": [],
         "reuse_session": false,
-        "session_ticket": false,
         "curves": ""
     },
     "tcp": {

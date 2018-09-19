@@ -37,7 +37,6 @@ private:
     boost::asio::ip::udp::resolver udp_resolver;
     Authenticator *auth;
     std::string auth_password;
-    const std::string &plain_http_response;
     void destroy();
     void in_async_read();
     void in_async_write(const std::string &data);
@@ -52,7 +51,7 @@ private:
     void udp_recv(const std::string &data, const boost::asio::ip::udp::endpoint &endpoint);
     void udp_sent();
 public:
-    ServerSession(const Config &config, boost::asio::io_service &io_service, boost::asio::ssl::context &ssl_context, Authenticator *auth, const std::string &plain_http_response);
+    ServerSession(const Config &config, boost::asio::io_service &io_service, boost::asio::ssl::context &ssl_context, Authenticator *auth);
     boost::asio::ip::tcp::socket& accept_socket();
     void start();
 };

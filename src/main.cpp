@@ -17,15 +17,9 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#include <cstdlib>
 #include <csignal>
 #include <iostream>
 #include <boost/program_options.hpp>
-#include <boost/version.hpp>
-#include <openssl/opensslv.h>
-#ifdef ENABLE_MYSQL
-#include <mysql.h>
-#endif // ENABLE_MYSQL
 #include "service.h"
 #include "version.h"
 using namespace std;
@@ -69,12 +63,11 @@ int main(int argc, const char *argv[]) {
         if (vm.count("help")) {
             Log::log(string("usage: ") + argv[0] + " [-htv] [-l LOG] [[-c] CONFIG]", Log::FATAL);
             cerr << desc;
-            exit(EXIT_SUCCESS);
+            return 0;
         }
         if (vm.count("version")) {
-            Log::log(string("Boost ") + BOOST_LIB_VERSION + ", " + OPENSSL_VERSION_TEXT, Log::FATAL);
 #ifdef ENABLE_MYSQL
-            Log::log(string(" [Enabled] MySQL Support (") + mysql_get_client_info() + ')', Log::FATAL);
+            Log::log(" [Enabled] MySQL Support", Log::FATAL);
 #else // ENABLE_MYSQL
             Log::log("[Disabled] MySQL Support", Log::FATAL);
 #endif // ENABLE_MYSQL
@@ -88,7 +81,7 @@ int main(int argc, const char *argv[]) {
 #else // TCP_FASTOPEN_CONNECT
             Log::log("[Disabled] TCP_FASTOPEN_CONNECT Support", Log::FATAL);
 #endif // TCP_FASTOPEN_CONNECT
-            exit(EXIT_SUCCESS);
+            return 0;
         }
         if (vm.count("log")) {
             Log::redirect(log_file);
@@ -104,7 +97,7 @@ int main(int argc, const char *argv[]) {
             service = new Service(config, test);
             if (test) {
                 Log::log("The config file looks good.", Log::OFF);
-                exit(EXIT_SUCCESS);
+                return 0;
             }
             signal(SIGINT, handleTermination);
             signal(SIGTERM, handleTermination);
@@ -117,10 +110,10 @@ int main(int argc, const char *argv[]) {
                 Log::log_with_date_time("trojan service restarting. . . ", Log::FATAL);
             }
         } while (restart);
-        exit(EXIT_SUCCESS);
+        return 0;
     } catch (const exception &e) {
         Log::log_with_date_time(string("fatal: ") + e.what(), Log::FATAL);
         Log::log_with_date_time("exiting. . . ", Log::FATAL);
-        exit(EXIT_FAILURE);
+        return 1;
     }
 }
