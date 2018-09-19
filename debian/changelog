@@ -1,3 +1,10 @@
+trojan (1.8.0-1) unstable; urgency=medium
+
+  * Sponsored upload.
+  * New upstream release 1.8.0.
+
+ -- GreaterFire <GreaterFire@protonmail.com>  Wed, 19 Sep 2018 10:47:41 -0400
+
 trojan (1.7.0-3) unstable; urgency=medium
 
   * Fix autotest
