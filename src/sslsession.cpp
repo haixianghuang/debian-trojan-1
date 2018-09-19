@@ -17,27 +17,28 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _SERVICE_H_
-#define _SERVICE_H_
+#include "sslsession.h"
+using namespace std;
 
-#include <boost/asio/io_service.hpp>
-#include <boost/asio/ssl.hpp>
-#include "authenticator.h"
+list<SSL_SESSION*>SSLSession::sessions;
 
-class Service {
-private:
-    const Config &config;
-    boost::asio::io_service io_service;
-    boost::asio::ip::tcp::acceptor socket_acceptor;
-    boost::asio::ssl::context ssl_context;
-    Authenticator *auth;
-    std::string plain_http_response;
-    void async_accept();
-public:
-    Service(Config &config, bool test = false);
-    void run();
-    void stop();
-    ~Service();
-};
+int SSLSession::new_session_cb(SSL*, SSL_SESSION *session) {
+    sessions.push_front(session);
+    return 0;
+}
 
-#endif // _SERVICE_H_
+void SSLSession::remove_session_cb(SSL_CTX*, SSL_SESSION *session) {
+    sessions.remove(session);
+}
+
+SSL_SESSION *SSLSession::get_session() {
+    if (sessions.size() == 0) {
+        return NULL;
+    }
+    return sessions.front();
+}
+
+void SSLSession::set_callback(SSL_CTX *context) {
+    SSL_CTX_sess_set_new_cb(context, new_session_cb);
+    SSL_CTX_sess_set_remove_cb(context, remove_session_cb);
+}
