@@ -18,6 +18,9 @@
  */
 
 #include "service.h"
+#include <cstring>
+#include <cerrno>
+#include <fstream>
 #ifdef _WIN32
 #include <wincrypt.h>
 #endif // _WIN32
@@ -26,6 +29,7 @@
 #include "clientsession.h"
 #include "forwardsession.h"
 #include "ssldefaults.h"
+#include "sslsession.h"
 using namespace std;
 using namespace boost::asio::ip;
 using namespace boost::asio::ssl;
@@ -67,9 +71,19 @@ Service::Service(Config &config, bool test) :
         }
         if (config.ssl.reuse_session) {
             SSL_CTX_set_timeout(native_context, config.ssl.session_timeout);
+            if (!config.ssl.session_ticket) {
+                SSL_CTX_set_options(native_context, SSL_OP_NO_TICKET);
+            }
         } else {
             SSL_CTX_set_session_cache_mode(native_context, SSL_SESS_CACHE_OFF);
             SSL_CTX_set_options(native_context, SSL_OP_NO_TICKET);
+        }
+        if (config.ssl.plain_http_response != "") {
+            ifstream ifs(config.ssl.plain_http_response, ios::binary);
+            if (!ifs.is_open()) {
+                throw runtime_error(config.ssl.plain_http_response + ": " + strerror(errno));
+            }
+            plain_http_response = string(istreambuf_iterator<char>(ifs), istreambuf_iterator<char>());
         }
         if (config.ssl.dhparam == "") {
             ssl_context.use_tmp_dh(boost::asio::const_buffer(SSLDefaults::g_dh2048_sz, SSLDefaults::g_dh2048_sz_size));
@@ -87,6 +101,9 @@ Service::Service(Config &config, bool test) :
 #endif // ENABLE_MYSQL
         }
     } else {
+        if (config.ssl.sni == "") {
+            config.ssl.sni = config.remote_addr;
+        }
         if (config.ssl.verify) {
             ssl_context.set_verify_mode(verify_peer);
             if (config.ssl.cert == "") {
@@ -122,6 +139,15 @@ Service::Service(Config &config, bool test) :
         }
         if (config.ssl.alpn != "") {
             SSL_CTX_set_alpn_protos(native_context, (unsigned char*)(config.ssl.alpn.c_str()), config.ssl.alpn.length());
+        }
+        if (config.ssl.reuse_session) {
+            SSL_CTX_set_session_cache_mode(native_context, SSL_SESS_CACHE_CLIENT);
+            SSLSession::set_callback(native_context);
+            if (!config.ssl.session_ticket) {
+                SSL_CTX_set_options(native_context, SSL_OP_NO_TICKET);
+            }
+        } else {
+            SSL_CTX_set_options(native_context, SSL_OP_NO_TICKET);
         }
     }
     if (config.ssl.cipher != "") {
@@ -176,7 +202,7 @@ void Service::stop() {
 void Service::async_accept() {
     shared_ptr<Session>session(nullptr);
     if (config.run_type == Config::SERVER) {
-        session = make_shared<ServerSession>(config, io_service, ssl_context, auth);
+        session = make_shared<ServerSession>(config, io_service, ssl_context, auth, plain_http_response);
     } else if (config.run_type == Config::FORWARD) {
         session = make_shared<ForwardSession>(config, io_service, ssl_context);
     } else {
