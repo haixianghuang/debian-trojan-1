@@ -3,7 +3,7 @@ Section: web
 Priority: optional
 Maintainer: GreaterFire <GreaterFire@protonmail.com>
 Build-Depends: debhelper (>= 11), cmake (>= 3.7.2), libboost-system-dev, libboost-program-options-dev, libssl-dev, default-libmysqlclient-dev, openssl, python3, curl
-Standards-Version: 4.2.1.2
+Standards-Version: 4.3.0.1
 Vcs-Browser: https://salsa.debian.org/debian/trojan
 Vcs-Git: https://salsa.debian.org/debian/trojan.git
 Homepage: https://github.com/trojan-gfw/trojan

@@ -1,3 +1,9 @@
+trojan (1.10.0-1) unstable; urgency=medium
+
+  * New upstream release 1.10.0.
+
+ -- GreaterFire <GreaterFire@protonmail.com>  Tue, 15 Jan 2019 04:19:22 +0000
+
 trojan (1.9.0-1) unstable; urgency=medium
 
   * New upstream release 1.9.0.
