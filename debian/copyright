@@ -3,7 +3,7 @@ Upstream-Name: trojan
 Source: https://github.com/trojan-gfw/trojan
 
 Files: *
-Copyright: Copyright 2018 GreaterFire <GreaterFire@protonmail.com>
+Copyright: Copyright 2017-2019 GreaterFire <GreaterFire@protonmail.com>
 License: GPL-3+ with OpenSSL exception
  This program is free software; you can redistribute it
  and/or modify it under the terms of the GNU General Public
