@@ -1,2 +1,0 @@
-0001-fix-resource-leak.patch
-0002-fix-boost-async_write-buffer-ownership-bug.patch

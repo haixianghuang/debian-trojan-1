@@ -1,3 +1,9 @@
+trojan (1.12.3-1) unstable; urgency=medium
+
+  * New upstream release 1.12.3.
+
+ -- GreaterFire <GreaterFire@protonmail.com>  Thu, 20 Jun 2019 15:50:15 +0000
+
 trojan (1.10.0-3) unstable; urgency=high
 
   * Fix a serious memory bug: boost::asio::async_write doesn't copy the data in
