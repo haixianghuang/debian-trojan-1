@@ -23,11 +23,12 @@ add_executable(trojan
     src/ssldefaults.cpp
     src/sslsession.cpp
     src/trojanrequest.cpp
+    src/udpforwardsession.cpp
     src/udppacket.cpp
     src/version.cpp)
 find_package(Threads REQUIRED)
 target_link_libraries(trojan ${CMAKE_THREAD_LIBS_INIT})
-find_package(Boost 1.54.0 REQUIRED COMPONENTS system program_options)
+find_package(Boost 1.66.0 REQUIRED COMPONENTS system program_options)
 include_directories(${Boost_INCLUDE_DIR})
 target_link_libraries(trojan ${Boost_LIBRARIES})
 if(MSVC)

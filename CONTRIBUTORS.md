@@ -6,11 +6,21 @@
     - Fix incorrect systemd service path in the documentation.
 - [GreaterFire](https://github.com/GreaterFire)
     - Author of this project.
+- [KCCat](https://github.com/KCCat)
+    - Fix an ambiguity in the documentation.
 - [klzgrad](https://github.com/klzgrad)
     - Add Linux smoke test.
+- [UzminTid](https://github.com/UzminTid)
+    - Fix type error in MinGW.
 - [WeidiDeng](https://github.com/WeidiDeng)
     - Fix incorrect Debian dependency in the documentation.
 - [wongsyrone](https://github.com/wongsyrone)
     - Add conditional MySQL compilation.
     - Remove `SSL_CTX_set_ecdh_auto(native_context, 1)` call in new versions of OpenSSL.
     - Fix a typo in the documentation.
+    - Add a functionality to log received signals.
+    - Fix a bug that causes trojan to crash if the connection is terminated before a session is established.
+    - Add android log facility.
+    - Refer to `basic_stream_socket` instead of `basic_socket` in SSL sockets.
+    - Cancel async tasks when stopping the service.
+    - Fix fd leak.

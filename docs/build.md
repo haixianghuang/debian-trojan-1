@@ -4,10 +4,10 @@ We'll only cover the build process on Linux since we will be providing Windows a
 
 ## Dependencies
 
-Install these dependencies before you build:
+Install these dependencies before you build (note that the test has some [additional dependencies](https://github.com/trojan-gfw/trojan/blob/master/tests/LinuxSmokeTest/README.md)):
 
 - [CMake](https://cmake.org/) >= 3.7.2
-- [Boost](http://www.boost.org/) >= 1.54.0
+- [Boost](http://www.boost.org/) >= 1.66.0
 - [OpenSSL](https://www.openssl.org/) >= 1.0.2
 - [libmysqlclient](https://dev.mysql.com/downloads/connector/c/)
 

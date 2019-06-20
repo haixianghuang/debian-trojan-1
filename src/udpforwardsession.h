@@ -17,44 +17,38 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-#ifndef _CLIENTSESSION_H_
-#define _CLIENTSESSION_H_
+#ifndef _UDPFORWARDSESSION_H_
+#define _UDPFORWARDSESSION_H_
 
 #include "session.h"
 #include <boost/asio/ssl.hpp>
+#include <boost/asio/steady_timer.hpp>
 
-class ClientSession : public Session {
+class UDPForwardSession : public Session {
+public:
+    typedef std::function<void(const boost::asio::ip::udp::endpoint&, const std::string&)> UDPWrite;
 private:
     enum Status {
-        HANDSHAKE,
-        REQUEST,
         CONNECT,
         FORWARD,
-        UDP_FORWARD,
-        INVALID,
+        FORWARDING,
         DESTROY
     } status;
-    bool is_udp;
-    bool first_packet_recv;
-    boost::asio::ip::tcp::socket in_socket;
+    UDPWrite in_write;
     boost::asio::ssl::stream<boost::asio::ip::tcp::socket>out_socket;
+    boost::asio::steady_timer gc_timer;
     void destroy();
-    void in_async_read();
-    void in_async_write(const std::string &data);
     void in_recv(const std::string &data);
-    void in_sent();
     void out_async_read();
     void out_async_write(const std::string &data);
     void out_recv(const std::string &data);
     void out_sent();
-    void udp_async_read();
-    void udp_async_write(const std::string &data, const boost::asio::ip::udp::endpoint &endpoint);
-    void udp_recv(const std::string &data, const boost::asio::ip::udp::endpoint &endpoint);
-    void udp_sent();
+    void timer_async_wait();
 public:
-    ClientSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context);
+    UDPForwardSession(const Config &config, boost::asio::io_context &io_context, boost::asio::ssl::context &ssl_context, const boost::asio::ip::udp::endpoint &endpoint, const UDPWrite &in_write);
     boost::asio::ip::tcp::socket& accept_socket();
     void start();
+    bool process(const boost::asio::ip::udp::endpoint &endpoint, const std::string &data);
 };
 
-#endif // _CLIENTSESSION_H_
+#endif // _UDPFORWARDSESSION_H_

@@ -1,7 +1,7 @@
 /*
  * This file is part of the trojan project.
  * Trojan is an unidentifiable mechanism that helps you bypass GFW.
- * Copyright (C) 2017-2019  GreaterFire, wongsyrone
+ * Copyright (C) 2017-2019  GreaterFire, wongsyrone, UzminTid
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,7 @@
 #include <fstream>
 #ifdef _WIN32
 #include <wincrypt.h>
+#include <tchar.h>
 #endif // _WIN32
 #include <openssl/opensslv.h>
 #include "serversession.h"
@@ -37,15 +38,22 @@ using namespace boost::asio::ssl;
 
 Service::Service(Config &config, bool test) :
     config(config),
-    socket_acceptor(io_service),
+    socket_acceptor(io_context),
     ssl_context(context::sslv23),
-    auth(nullptr) {
+    auth(nullptr),
+    udp_socket(io_context) {
     if (!test) {
-        auto listen_endpoint = tcp::endpoint(address::from_string(config.local_addr), config.local_port);
+        tcp::resolver resolver(io_context);
+        tcp::endpoint listen_endpoint = *resolver.resolve(config.local_addr, to_string(config.local_port)).begin();
         socket_acceptor.open(listen_endpoint.protocol());
         socket_acceptor.set_option(tcp::acceptor::reuse_address(true));
         socket_acceptor.bind(listen_endpoint);
         socket_acceptor.listen();
+        if (config.run_type == Config::FORWARD) {
+            auto udp_bind_endpoint = udp::endpoint(listen_endpoint.address(), listen_endpoint.port());
+            udp_socket.open(udp_bind_endpoint.protocol());
+            udp_socket.bind(udp_bind_endpoint);
+        }
     }
     Log::level = config.log_level;
     auto native_context = ssl_context.native_handle();
@@ -110,7 +118,7 @@ Service::Service(Config &config, bool test) :
             if (config.ssl.cert == "") {
                 ssl_context.set_default_verify_paths();
 #ifdef _WIN32
-                HCERTSTORE h_store = CertOpenSystemStore(0, "ROOT");
+                HCERTSTORE h_store = CertOpenSystemStore(0, _T("ROOT"));
                 if (h_store) {
                     X509_STORE *store = SSL_CTX_get_cert_store(native_context);
                     PCCERT_CONTEXT p_context = NULL;
@@ -192,6 +200,9 @@ Service::Service(Config &config, bool test) :
 
 void Service::run() {
     async_accept();
+    if (config.run_type == Config::FORWARD) {
+        udp_async_read();
+    }
     tcp::endpoint local_endpoint = socket_acceptor.local_endpoint();
     string rt;
     if (config.run_type == Config::SERVER) {
@@ -201,25 +212,35 @@ void Service::run() {
     } else {
         rt = "client";
     }
-    Log::log_with_date_time(string("trojan service (") + rt + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::FATAL);
-    io_service.run();
-    Log::log_with_date_time("trojan service stopped", Log::FATAL);
+    Log::log_with_date_time(string("trojan service (") + rt + ") started at " + local_endpoint.address().to_string() + ':' + to_string(local_endpoint.port()), Log::WARN);
+    io_context.run();
+    Log::log_with_date_time("trojan service stopped", Log::WARN);
 }
 
 void Service::stop() {
-    io_service.stop();
+    boost::system::error_code ec;
+    socket_acceptor.cancel(ec);
+    if (udp_socket.is_open()) {
+        udp_socket.cancel(ec);
+        udp_socket.close(ec);
+    }
+    io_context.stop();
 }
 
 void Service::async_accept() {
     shared_ptr<Session>session(nullptr);
     if (config.run_type == Config::SERVER) {
-        session = make_shared<ServerSession>(config, io_service, ssl_context, auth, plain_http_response);
+        session = make_shared<ServerSession>(config, io_context, ssl_context, auth, plain_http_response);
     } else if (config.run_type == Config::FORWARD) {
-        session = make_shared<ForwardSession>(config, io_service, ssl_context);
+        session = make_shared<ForwardSession>(config, io_context, ssl_context);
     } else {
-        session = make_shared<ClientSession>(config, io_service, ssl_context);
+        session = make_shared<ClientSession>(config, io_context, ssl_context);
     }
     socket_acceptor.async_accept(session->accept_socket(), [this, session](const boost::system::error_code error) {
+        if (error == boost::asio::error::operation_aborted) {
+            // got cancel signal, stop calling myself
+            return;
+        }
         if (!error) {
             boost::system::error_code ec;
             auto endpoint = session->accept_socket().remote_endpoint(ec);
@@ -230,6 +251,63 @@ void Service::async_accept() {
         }
         async_accept();
     });
+}
+
+void Service::udp_async_read() {
+    udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf, MAX_LENGTH), udp_recv_endpoint, [this](const boost::system::error_code error, size_t length) {
+        if (error == boost::asio::error::operation_aborted) {
+            // got cancel signal, stop calling myself
+            return;
+        }
+        if (error) {
+            stop();
+            throw runtime_error(error.message());
+        }
+        string data((const char *)udp_read_buf, length);
+        for (auto it = udp_sessions.begin(); it != udp_sessions.end();) {
+            auto next = ++it;
+            --it;
+            if (it->expired()) {
+                udp_sessions.erase(it);
+            } else if (it->lock()->process(udp_recv_endpoint, data)) {
+                udp_async_read();
+                return;
+            }
+            it = next;
+        }
+        Log::log_with_endpoint(tcp::endpoint(udp_recv_endpoint.address(), udp_recv_endpoint.port()), "new UDP session");
+        auto session = make_shared<UDPForwardSession>(config, io_context, ssl_context, udp_recv_endpoint, [this](const udp::endpoint &endpoint, const string &data) {
+            boost::system::error_code ec;
+            udp_socket.send_to(boost::asio::buffer(data), endpoint, 0, ec);
+            if (ec == boost::asio::error::no_permission) {
+                Log::log_with_endpoint(tcp::endpoint(endpoint.address(), endpoint.port()), "dropped a UDP packet due to firewall policy or rate limit");
+            } else if (ec) {
+                throw runtime_error(ec.message());
+            }
+        });
+        udp_sessions.emplace_back(session);
+        session->start();
+        session->process(udp_recv_endpoint, data);
+        udp_async_read();
+    });
+}
+
+boost::asio::io_context &Service::service() {
+    return io_context;
+}
+
+void Service::reload_cert() {
+    if (config.run_type == Config::SERVER) {
+        Log::log_with_date_time("reloading certificate and private key. . . ", Log::WARN);
+        ssl_context.use_certificate_chain_file(config.ssl.cert);
+        ssl_context.use_private_key_file(config.ssl.key, context::pem);
+        boost::system::error_code ec;
+        socket_acceptor.cancel(ec);
+        async_accept();
+        Log::log_with_date_time("certificate and private key reloaded", Log::WARN);
+    } else {
+        Log::log_with_date_time("cannot reload certificate and private key: wrong run_type", Log::ERROR);
+    }
 }
 
 Service::~Service() {

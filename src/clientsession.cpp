@@ -1,7 +1,7 @@
 /*
  * This file is part of the trojan project.
  * Trojan is an unidentifiable mechanism that helps you bypass GFW.
- * Copyright (C) 2017-2019  GreaterFire
+ * Copyright (C) 2017-2019  GreaterFire, wongsyrone
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -25,20 +25,25 @@ using namespace std;
 using namespace boost::asio::ip;
 using namespace boost::asio::ssl;
 
-ClientSession::ClientSession(const Config &config, boost::asio::io_service &io_service, context &ssl_context) :
-    Session(config, io_service),
+ClientSession::ClientSession(const Config &config, boost::asio::io_context &io_context, context &ssl_context) :
+    Session(config, io_context),
     status(HANDSHAKE),
     first_packet_recv(false),
-    in_socket(io_service),
-    out_socket(io_service, ssl_context) {}
+    in_socket(io_context),
+    out_socket(io_context, ssl_context) {}
 
 tcp::socket& ClientSession::accept_socket() {
     return in_socket;
 }
 
 void ClientSession::start() {
+    boost::system::error_code ec;
     start_time = time(NULL);
-    in_endpoint = in_socket.remote_endpoint();
+    in_endpoint = in_socket.remote_endpoint(ec);
+    if (ec) {
+        destroy();
+        return;
+    }
     auto ssl = out_socket.native_handle();
     if (config.ssl.sni != "") {
         SSL_set_tlsext_host_name(ssl, config.ssl.sni.c_str());
@@ -55,7 +60,10 @@ void ClientSession::start() {
 void ClientSession::in_async_read() {
     auto self = shared_from_this();
     in_socket.async_read_some(boost::asio::buffer(in_read_buf, MAX_LENGTH), [this, self](const boost::system::error_code error, size_t length) {
-        if (error && error != boost::asio::error::operation_aborted) {
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+        if (error) {
             destroy();
             return;
         }
@@ -65,7 +73,8 @@ void ClientSession::in_async_read() {
 
 void ClientSession::in_async_write(const string &data) {
     auto self = shared_from_this();
-    boost::asio::async_write(in_socket, boost::asio::buffer(data), [this, self](const boost::system::error_code error, size_t) {
+    auto data_copy = make_shared<string>(data);
+    boost::asio::async_write(in_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
         if (error) {
             destroy();
             return;
@@ -87,7 +96,8 @@ void ClientSession::out_async_read() {
 
 void ClientSession::out_async_write(const string &data) {
     auto self = shared_from_this();
-    boost::asio::async_write(out_socket, boost::asio::buffer(data), [this, self](const boost::system::error_code error, size_t) {
+    auto data_copy = make_shared<string>(data);
+    boost::asio::async_write(out_socket, boost::asio::buffer(*data_copy), [this, self, data_copy](const boost::system::error_code error, size_t) {
         if (error) {
             destroy();
             return;
@@ -99,7 +109,10 @@ void ClientSession::out_async_write(const string &data) {
 void ClientSession::udp_async_read() {
     auto self = shared_from_this();
     udp_socket.async_receive_from(boost::asio::buffer(udp_read_buf, MAX_LENGTH), udp_recv_endpoint, [this, self](const boost::system::error_code error, size_t length) {
-        if (error && error != boost::asio::error::operation_aborted) {
+        if (error == boost::asio::error::operation_aborted) {
+            return;
+        }
+        if (error) {
             destroy();
             return;
         }
@@ -109,7 +122,8 @@ void ClientSession::udp_async_read() {
 
 void ClientSession::udp_async_write(const string &data, const udp::endpoint &endpoint) {
     auto self = shared_from_this();
-    udp_socket.async_send_to(boost::asio::buffer(data), endpoint, [this, self](const boost::system::error_code error, size_t) {
+    auto data_copy = make_shared<string>(data);
+    udp_socket.async_send_to(boost::asio::buffer(*data_copy), endpoint, [this, self, data_copy](const boost::system::error_code error, size_t) {
         if (error) {
             destroy();
             return;
@@ -159,7 +173,12 @@ void ClientSession::in_recv(const string &data) {
             is_udp = req.command == TrojanRequest::UDP_ASSOCIATE;
             if (is_udp) {
                 udp::endpoint bindpoint(in_socket.local_endpoint().address(), 0);
-                udp_socket.open(bindpoint.protocol());
+                boost::system::error_code ec;
+                udp_socket.open(bindpoint.protocol(), ec);
+                if (ec) {
+                    destroy();
+                    return;
+                }
                 udp_socket.bind(bindpoint);
                 Log::log_with_endpoint(in_endpoint, "requested UDP associate to " + req.address.address + ':' + to_string(req.address.port) + ", open UDP socket " + udp_socket.local_endpoint().address().to_string() + ':' + to_string(udp_socket.local_endpoint().port()) + " for relay", Log::INFO);
                 in_async_write(string("\x05\x00\x00", 3) + SOCKS5Address::generate(udp_socket.local_endpoint()));
@@ -198,41 +217,38 @@ void ClientSession::in_sent() {
         }
         case REQUEST: {
             status = CONNECT;
+            in_async_read();
             if (is_udp) {
-                in_async_read();
+                udp_async_read();
             }
-            if (config.append_payload) {
-                if (is_udp) {
-                    udp_async_read();
-                } else {
-                    in_async_read();
-                }
-            } else {
-                first_packet_recv = true;
-            }
-            tcp::resolver::query query(config.remote_addr, to_string(config.remote_port));
             auto self = shared_from_this();
-            resolver.async_resolve(query, [this, self](const boost::system::error_code error, tcp::resolver::iterator iterator) {
+            resolver.async_resolve(config.remote_addr, to_string(config.remote_port), [this, self](const boost::system::error_code error, tcp::resolver::results_type results) {
                 if (error) {
                     Log::log_with_endpoint(in_endpoint, "cannot resolve remote server hostname " + config.remote_addr + ": " + error.message(), Log::ERROR);
                     destroy();
                     return;
                 }
-                out_socket.lowest_layer().open(iterator->endpoint().protocol());
+                auto iterator = results.begin();
+                boost::system::error_code ec;
+                out_socket.next_layer().open(iterator->endpoint().protocol(), ec);
+                if (ec) {
+                    destroy();
+                    return;
+                }
                 if (config.tcp.no_delay) {
-                    out_socket.lowest_layer().set_option(tcp::no_delay(true));
+                    out_socket.next_layer().set_option(tcp::no_delay(true));
                 }
                 if (config.tcp.keep_alive) {
-                    out_socket.lowest_layer().set_option(boost::asio::socket_base::keep_alive(true));
+                    out_socket.next_layer().set_option(boost::asio::socket_base::keep_alive(true));
                 }
 #ifdef TCP_FASTOPEN_CONNECT
                 if (config.tcp.fast_open) {
                     using fastopen_connect = boost::asio::detail::socket_option::boolean<IPPROTO_TCP, TCP_FASTOPEN_CONNECT>;
                     boost::system::error_code ec;
-                    out_socket.lowest_layer().set_option(fastopen_connect(true), ec);
+                    out_socket.next_layer().set_option(fastopen_connect(true), ec);
                 }
 #endif // TCP_FASTOPEN_CONNECT
-                out_socket.lowest_layer().async_connect(*iterator, [this, self](const boost::system::error_code error) {
+                out_socket.next_layer().async_connect(*iterator, [this, self](const boost::system::error_code error) {
                     if (error) {
                         Log::log_with_endpoint(in_endpoint, "cannot establish connection to remote server " + config.remote_addr + ':' + to_string(config.remote_port) + ": " + error.message(), Log::ERROR);
                         destroy();
@@ -370,13 +386,21 @@ void ClientSession::destroy() {
         udp_socket.cancel(ec);
         udp_socket.close(ec);
     }
-    if (out_socket.lowest_layer().is_open()) {
-        out_socket.lowest_layer().cancel(ec);
+    if (out_socket.next_layer().is_open()) {
         auto self = shared_from_this();
-        out_socket.async_shutdown([this, self](const boost::system::error_code) {
+        auto ssl_shutdown_cb = [this, self](const boost::system::error_code error) {
+            if (error == boost::asio::error::operation_aborted) {
+                return;
+            }
             boost::system::error_code ec;
-            out_socket.lowest_layer().shutdown(tcp::socket::shutdown_both, ec);
-            out_socket.lowest_layer().close(ec);
-        });
+            ssl_shutdown_timer.cancel();
+            out_socket.next_layer().cancel(ec);
+            out_socket.next_layer().shutdown(tcp::socket::shutdown_both, ec);
+            out_socket.next_layer().close(ec);
+        };
+        out_socket.next_layer().cancel(ec);
+        out_socket.async_shutdown(ssl_shutdown_cb);
+        ssl_shutdown_timer.expires_after(chrono::seconds(SSL_SHUTDOWN_TIMEOUT));
+        ssl_shutdown_timer.async_wait(ssl_shutdown_cb);
     }
 }
