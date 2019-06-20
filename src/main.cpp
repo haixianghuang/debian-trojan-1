@@ -1,7 +1,7 @@
 /*
  * This file is part of the trojan project.
  * Trojan is an unidentifiable mechanism that helps you bypass GFW.
- * Copyright (C) 2017-2019  GreaterFire
+ * Copyright (C) 2017-2019  GreaterFire, wongsyrone
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,8 +18,8 @@
  */
 
 #include <cstdlib>
-#include <csignal>
 #include <iostream>
+#include <boost/asio/signal_set.hpp>
 #include <boost/program_options.hpp>
 #include <boost/version.hpp>
 #include <openssl/opensslv.h>
@@ -29,22 +29,36 @@
 #include "service.h"
 #include "version.h"
 using namespace std;
+using namespace boost::asio;
 namespace po = boost::program_options;
 
 #ifndef DEFAULT_CONFIG
 #define DEFAULT_CONFIG "config.json"
 #endif // DEFAULT_CONFIG
 
-Service *service;
-bool restart;
-
-void handleTermination(int) {
-    service->stop();
-}
-
-void restartService(int) {
-    restart = true;
-    service->stop();
+void signal_async_wait(signal_set &sig, Service &service, bool &restart) {
+    sig.async_wait([&](const boost::system::error_code error, int signum) {
+        if (error) {
+            return;
+        }
+        Log::log_with_date_time("got signal: " + to_string(signum), Log::WARN);
+        switch (signum) {
+            case SIGINT:
+            case SIGTERM:
+                service.stop();
+                break;
+#ifndef _WIN32
+            case SIGHUP:
+                restart = true;
+                service.stop();
+                break;
+            case SIGUSR1:
+                service.reload_cert();
+                signal_async_wait(sig, service, restart);
+                break;
+#endif // _WIN32
+        }
+    });
 }
 
 int main(int argc, const char *argv[]) {
@@ -103,28 +117,31 @@ int main(int argc, const char *argv[]) {
         if (vm.count("keylog")) {
             Log::redirect_keylog(keylog_file);
         }
+        bool restart;
         Config config;
         do {
             restart = false;
             if (config.sip003()) {
-                Log::log_with_date_time("SIP003 is loaded", Log::FATAL);
+                Log::log_with_date_time("SIP003 is loaded", Log::WARN);
             } else {
                 config.load(config_file);
             }
-            service = new Service(config, test);
+            Service service(config, test);
             if (test) {
                 Log::log("The config file looks good.", Log::OFF);
                 exit(EXIT_SUCCESS);
             }
-            signal(SIGINT, handleTermination);
-            signal(SIGTERM, handleTermination);
+            signal_set sig(service.service());
+            sig.add(SIGINT);
+            sig.add(SIGTERM);
 #ifndef _WIN32
-            signal(SIGHUP, restartService);
+            sig.add(SIGHUP);
+            sig.add(SIGUSR1);
 #endif // _WIN32
-            service->run();
-            delete service;
+            signal_async_wait(sig, service, restart);
+            service.run();
             if (restart) {
-                Log::log_with_date_time("trojan service restarting. . . ", Log::FATAL);
+                Log::log_with_date_time("trojan service restarting. . . ", Log::WARN);
             }
         } while (restart);
         Log::reset();

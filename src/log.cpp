@@ -1,7 +1,7 @@
 /*
  * This file is part of the trojan project.
  * Trojan is an unidentifiable mechanism that helps you bypass GFW.
- * Copyright (C) 2017-2019  GreaterFire
+ * Copyright (C) 2017-2019  GreaterFire, wongsyrone
  *
  * This program is free software: you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -24,6 +24,9 @@
 #include <sstream>
 #include <boost/date_time/posix_time/posix_time.hpp>
 #include <boost/date_time/posix_time/posix_time_io.hpp>
+#ifdef ENABLE_ANDROID_LOG
+#include <android/log.h>
+#endif // ENABLE_ANDROID_LOG
 using namespace std;
 using namespace boost::posix_time;
 using namespace boost::asio::ip;
@@ -34,8 +37,13 @@ FILE *Log::output_stream(stderr);
 
 void Log::log(const string &message, Level level) {
     if (level >= Log::level) {
+#ifdef ENABLE_ANDROID_LOG
+        __android_log_print(ANDROID_LOG_ERROR, "trojan", "%s\n",
+                            message.c_str());
+#else
         fprintf(output_stream, "%s\n", message.c_str());
         fflush(output_stream);
+#endif // ENABLE_ANDROID_LOG
     }
 }
 
