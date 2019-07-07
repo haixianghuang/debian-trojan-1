@@ -1,8 +1,14 @@
 trojan (1.12.3-1) unstable; urgency=medium
 
+  * Team upload.
+  * debian/control:
+    + Bump debhelper compat to v12.
+    + Bump Standards-Version to 4.4.0.
+
+  [ GreaterFire ]
   * New upstream release 1.12.3.
 
- -- GreaterFire <GreaterFire@protonmail.com>  Thu, 20 Jun 2019 15:50:15 +0000
+ -- Boyuan Yang <byang@debian.org>  Sun, 07 Jul 2019 11:54:48 -0400
 
 trojan (1.10.0-3) unstable; urgency=high
 
