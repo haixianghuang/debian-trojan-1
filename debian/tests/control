@@ -1,7 +1,7 @@
 Test-Command: tests/LinuxSmokeTest/basic.sh /usr/bin/trojan
 Restrictions: allow-stderr isolation-container
-Depends: trojan, openssl, python3, curl, netcat
+Depends: trojan, openssl, python3, curl, netcat-openbsd
 
 Test-Command: tests/LinuxSmokeTest/fake-client.sh /usr/bin/trojan
 Restrictions: allow-stderr isolation-container
-Depends: trojan, openssl, python3, curl, netcat
+Depends: trojan, openssl, python3, curl, netcat-openbsd
