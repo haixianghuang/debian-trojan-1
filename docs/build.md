@@ -41,9 +41,13 @@ to build, test, and install trojan. If everything goes well you'll be able to us
 
 The `cmake ..` command can be extended with the following options:
 
+- `-DDEFAULT_CONFIG=/path/to/default/config.json`: the default path trojan will look for config (defaults to `${CMAKE_INSTALL_FULL_SYSCONFDIR}/trojan/config.json`).
 - `ENABLE_MYSQL`
     - `-DENABLE_MYSQL=ON`: build with MySQL support (default).
     - `-DENABLE_MYSQL=OFF`: build without MySQL support.
+- `ENABLE_NAT` (Only on Linux)
+    - `-DENABLE_NAT=ON`: build with NAT support (default).
+    - `-DENABLE_NAT=OFF`: build without NAT support.
 - `ENABLE_SSL_KEYLOG` (OpenSSL >= 1.1.1)
     - `-DENABLE_SSL_KEYLOG=ON`: build with SSL KeyLog support (default).
     - `-DENABLE_SSL_KEYLOG=OFF`: build without SSL KeyLog support.
